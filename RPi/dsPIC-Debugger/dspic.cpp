@@ -1,6 +1,7 @@
 #include "dspic.hpp"
 
-DsPIC::DsPIC(){
+DsPIC::DsPIC(Data *p_data){
+	m_p_data = p_data;
     fd = serialOpen ("/dev/serial0", BAUDRATE);
 }
 DsPIC::~DsPIC(){
@@ -887,36 +888,35 @@ bool DsPIC::isUpdatedLogs(){
 }
 
 void DsPIC::addPlot(point p){
-    m_mutex.lock();
-	plots.push(p);
-	updatedPlots = true;
-	m_mutex.unlock();
+    if(m_p_data == NULL)
+		return;
+	m_p_data->addPlot(p);
 }
 void DsPIC::clearPlots(){
-    m_mutex.lock();
-	std::queue<point> empty;
-    std::swap( plots, empty );
-	m_mutex.unlock();
+    if(m_p_data == NULL)
+		return;
+	m_p_data->clearPlots();
 }
 std::queue<point> DsPIC::getPlots(){
-    m_mutex.lock();
-    std::queue<point> plots = this->plots;
-    updatedPlots = false;
-	m_mutex.unlock();
-    return plots;
+    if(m_p_data == NULL){
+		std::queue<point> foo;
+		return foo;
+	}
+	return m_p_data->getPlots();
 }
 bool DsPIC::isUpdatedPlots(){
-    m_mutex.lock();
-	bool b = this->updatedPlots;
-	m_mutex.unlock();
-	return b;
+    if(m_p_data == NULL)
+		return false;
+	return m_p_data->isUpdatedPlots();
 }
+
 bool DsPIC::isContinueThread(){
     m_mutex.lock();
     bool b = m_continueThread;
     m_mutex.unlock();
     return b;
 }
+
 void DsPIC::configureDebugVar(uint8_t row, uint8_t id, uint8_t type, uint8_t on, uint32_t period, uint8_t nb, uint8_t onTimeStamp){
     uint8_t buffer[RX_SIZE_CONFIG_DEBUG_VAR + 1];
     buffer[0] = RX_SIZE_CONFIG_DEBUG_VAR;
@@ -939,6 +939,40 @@ void DsPIC::configureDebugVar(uint8_t row, uint8_t id, uint8_t type, uint8_t on,
     for(int i = 0; i < RX_SIZE_CONFIG_DEBUG_VAR + 1; i++){
         serialPutchar (fd, buffer[i]);
     }
+}
+
+void DsPIC::updateDebugValue(uint8_t id,uint32_t value){
+    s_debugValue dV;
+    dV.id = id;
+    dV.value = value;
+    q_DebugValue.push(dV);
+}
+void DsPIC::updateDebugName(uint8_t id,std::string name){
+    s_debugName dN;
+    dN.id = id;
+    dN.name = name;
+    q_DebugName.push(dN);
+}
+void DsPIC::clearDebug(){
+    m_mutex.lock();
+	std::queue<s_debugValue> empty;
+    std::swap( q_DebugValue, empty );
+    
+    std::queue<s_debugName> empty2;
+    std::swap( q_DebugName, empty2 );
+	m_mutex.unlock();
+}
+std::queue<s_debugValue> DsPIC::getDebugValue(){
+    m_mutex.lock();
+    std::queue<s_debugValue> q_dV = this->q_DebugValue;
+	m_mutex.unlock();
+    return q_dV;
+}
+std::queue<s_debugName> DsPIC::getDebugName(){
+    m_mutex.lock();
+    std::queue<s_debugName> q_dN = this->q_DebugName;
+	m_mutex.unlock();
+    return q_dN;
 }
 /**
 Thread for handling dsPIC UART response
@@ -1006,6 +1040,7 @@ void *thread_reception(void *ptr) {
                                 if(msg.size() > 5){
 									uint32_t foo = (msg[3] << 24) + (msg[4] << 16) + (msg[5] << 8) + msg[6];
                                     DEBUG_DSPIC_PRINT("UI32 = " << foo);
+                                    dspic->updateDebugValue(0,foo);
                                 }
 							break;
 							}
@@ -1342,6 +1377,16 @@ void *thread_reception(void *ptr) {
                         //dspic->logs.push(s);
                         dspic->addLog(s);
                         //sendMsg("l=" + s);
+                        break;
+                    }
+                    case TX_CODE_PLOT :{    //plot
+                        uint8_t id = msg[2];
+                        //std::cout << "plot id = " << id << "/" << (int)msg[2] << std::endl;
+                        uint32_t x = (msg[3] << 24) + (msg[4] << 16) + (msg[5] << 8) + msg[6];
+                        int32_t y = (msg[7] << 24) + (msg[8] << 16) + (msg[9] << 8) + msg[10];
+                        point p = {id, x, y};
+                        //dspic->plots.push(p);
+                        dspic->addPlot(p);
                         break;
                     }
                     default :

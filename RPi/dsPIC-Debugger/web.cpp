@@ -1,7 +1,8 @@
 #include "web.hpp"
 
-Web::Web(DsPIC *ds){
+Web::Web(DsPIC *ds, Data *p_data){
 	dspic = ds;
+	m_p_data = p_data;
     s = "hello world !";
     struct sockaddr_in server;
 
@@ -126,6 +127,42 @@ void Web::addLidarPoints(std::vector<pointFloat2d> vect_fp){
 }
 void Web::clearLidarPoints(){
 	m_clearLidarPoints = true;
+}
+
+void Web::updateDebugValue(uint8_t id,uint32_t value){
+    s_debugValue dV;
+    dV.id = id;
+    dV.value = value;
+    q_DebugValue.push(dV);
+}
+void Web::updateDebugName(uint8_t id,std::string name){
+    s_debugName dN;
+    dN.id = id;
+    dN.name = name;
+    q_DebugName.push(dN);
+}
+
+void Web::addPlot(point p){
+	if(m_p_data == NULL)
+		return;
+	m_p_data->addPlot(p);
+}
+void Web::clearPlots(){
+    if(m_p_data == NULL)
+		return;
+	m_p_data->clearPlots();
+}
+std::queue<point> Web::getPlots(){
+    if(m_p_data == NULL){
+		std::queue<point> foo;
+		return foo;
+	}
+	return m_p_data->getPlots();
+}
+bool Web::isUpdatedPlots(){
+    if(m_p_data == NULL)
+		return false;
+	return m_p_data->isUpdatedPlots();
 }
 
 void* thread_HandleConnnection(void *threadid){
@@ -711,8 +748,8 @@ std::string realResponse(Web *w){
         dspic->clearLogs();
 	}
 
-	if(dspic->isUpdatedPlots()){
-        std::queue<point> plots = dspic->getPlots();
+	if(w->isUpdatedPlots()){
+        std::queue<point> plots = w->getPlots();
         while(plots.size() > 0){
             point p = plots.front();
             plots.pop();
@@ -720,7 +757,7 @@ std::string realResponse(Web *w){
             //std::cout << "plot : " << (int)p.id << "=" << p.x << ";" << p.y << std::endl;
             //myString << qs;
         }
-        dspic->clearPlots();
+        w->clearPlots();
 	}
 
 	if(w->m_clearLidarPoints){
@@ -741,6 +778,35 @@ std::string realResponse(Web *w){
         //std::cout << "log sent to web -> " << qs << std::endl;
         //myString << qs;
 	}
+    
+    while(w->q_DebugValue.size() > 0){
+        myString << "&f=";
+        s_debugValue dV = w->q_DebugValue.front();
+        w->q_DebugValue.pop();
+        myString << (int)dV.id << ";" << dV.value;
+	}
+    
+    while(w->q_DebugName.size() > 0){
+        myString << "&g=";
+        s_debugName dN = w->q_DebugName.front();
+        w->q_DebugName.pop();
+        myString << (int)dN.id << ";" << dN.name;
+	}
+    std::queue<s_debugValue> q_DebugValue = dspic->getDebugValue();
+    while(q_DebugValue.size() > 0){
+        myString << "&f=";
+        s_debugValue dV = q_DebugValue.front();
+        q_DebugValue.pop();
+        myString << (int)dV.id << ";" << dV.value;
+	}
+    std::queue<s_debugName>q_DebugName = dspic->getDebugName();
+    while(q_DebugName.size() > 0){
+        myString << "&g=";
+        s_debugName dN = q_DebugName.front();
+        q_DebugName.pop();
+        myString << (int)dN.id << ";" << dN.name;
+	}
+    dspic->clearDebug();
 	/*std::queue<pointFloat2d> points  = w->lidar->getAndClearDetectedPoints();
     while(points.size()){
         pointFloat2d fp = points.front();

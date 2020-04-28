@@ -15,19 +15,29 @@
 #include <unistd.h>
 #include "dspic.hpp"
 
+#include "global.hpp"
+#include "data.hpp"
+
 #define DEBUG_PID	0
 
 struct pointFloat2d{
   float x;
   float y;
 };
-
+/*struct s_debugValue{
+  uint8_t id;
+  uint8_t value;
+};
+struct s_debugName{
+  uint8_t id;
+  std::string name;
+};*/
 void* thread_HandleConnnection(void *threadid);
 std::string simulateResponse(double i);
 class Web
 {
     public:
-        Web(DsPIC *ds);
+        Web(DsPIC *ds, Data *p_data);
         virtual ~Web();
         bool acceptClient();
 		void closeClient();
@@ -48,6 +58,18 @@ class Web
 		bool m_clearLidarPoints = false;
 		bool m_radarScan = true;
 		std::queue<pointFloat2d> lidarPoints;
+        
+        
+        std::queue<s_debugValue> q_DebugValue;
+        std::queue<s_debugName> q_DebugName;
+        
+        void updateDebugValue(uint8_t id,uint32_t value);
+        void updateDebugName(uint8_t id,std::string name);
+		
+		void addPlot(point p);
+        void clearPlots();
+        std::queue<point> getPlots();
+        bool isUpdatedPlots();
 		
     protected:
         int socket_listen;
@@ -55,6 +77,8 @@ class Web
         pthread_t threads;
 		bool m_continueThread;
 		std::mutex m_mutex;
+		Data *m_p_data;
+        
     private:
 };
 

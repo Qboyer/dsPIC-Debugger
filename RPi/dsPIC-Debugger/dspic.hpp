@@ -231,6 +231,9 @@
 #include <iostream>
 #include <mutex>
 
+#include "global.hpp"
+#include "data.hpp"
+
 struct microswitch{
   unsigned int ass0 : 1;
   unsigned int ass1 : 1;
@@ -251,21 +254,29 @@ struct US{
   uint16_t US4;
   uint16_t US5;
 };
-struct point{
+/*struct point{
   uint8_t id;
   uint32_t x;
   int32_t y;
-};
+};*/
 struct pid{
   uint32_t Kp;
   uint32_t Ki;
   uint32_t Kd;
 };
+/*struct s_debugValue{
+  uint8_t id;
+  uint8_t value;
+};
+struct s_debugName{
+  uint8_t id;
+  std::string name;
+};*/
 void *thread_reception(void *ptr);
 class DsPIC
 {
     public:
-        DsPIC();
+        DsPIC(Data *p_data);
         virtual ~DsPIC();
 
 		//void initVarDspic();
@@ -366,6 +377,13 @@ class DsPIC
         bool isContinueThread();
         
         void configureDebugVar(uint8_t row, uint8_t id, uint8_t type, uint8_t on, uint32_t period, uint8_t nb, uint8_t onTimeStamp);
+        
+        void updateDebugValue(uint8_t id,uint32_t value);
+        void updateDebugName(uint8_t id,std::string name);
+        std::queue<s_debugValue> getDebugValue();
+        std::queue<s_debugName> getDebugName();
+        
+        void clearDebug();
 
     protected:
 		double x_ld = 0;
@@ -379,7 +397,7 @@ class DsPIC
 		pid pidDistance = {0,0,0};
 		pid pidAngle = {0,0,0};
 		std::queue<std::string> logs;
-		std::queue<point> plots;
+		//std::queue<point> plots;
 		int fd;
         pthread_t m_threadReception;
         std::mutex m_mutex;
@@ -397,8 +415,13 @@ class DsPIC
 		bool updatedPidDistance = false;
 		bool updatedPidAngle = false;
 		bool updatedAllPid = false;
-		bool updatedPlots = false;
+		//bool updatedPlots = false;
 		bool updatedLogs = false;
+		
+        std::queue<s_debugValue> q_DebugValue;
+        std::queue<s_debugName> q_DebugName;
+        
+		Data *m_p_data;
 		
     private:
 };

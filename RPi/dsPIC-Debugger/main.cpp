@@ -5,6 +5,7 @@
 #include <queue>
 #include "web.hpp"
 #include "dspic.hpp"
+#include "data.hpp"
 
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
@@ -25,12 +26,13 @@ int main()
 	std::cout << std::endl << " dsPIC-Debugger " << std::endl << std::endl;
     std::cout << "Initialisation..." << std::endl;
     wiringPiSetup();
-    DsPIC dspic;
+	Data data;
+    DsPIC dspic(&data);
     dspic.reset();
     delay(250); //wait for reset
     dspic.async_read(); //flush rx buffer
 
-    Web web(&dspic);
+    Web web(&dspic,&data);
 
     puts("Hello human ! I, your fervent robot, am initialised. Press <ENTER> to continue.");
 	
@@ -38,10 +40,17 @@ int main()
     web.startThread();
     //delay(500);
     dspic.setVar8(CODE_VAR_VERBOSE,1);
+    web.updateDebugName(0,"time");
+    web.updateDebugValue(0,12);
     puts("verbose set to 1");
     puts("Press <ENTER> to activate UI32 debug.");
     getchar();
-    dspic.configureDebugVar(0, ID_VAR_TEST_UI32, VAR_32b, 1, 250, 0, 0);
+	for(int i = 0; i < 100; i++){
+		point p = {1, micros(), i};
+		data.addPlot(p);
+		delay(1);
+	}
+    dspic.configureDebugVar(0, ID_VAR_TEST_UI32, VAR_32b, 1, 50, 0, 0);
     puts("Press <ENTER> to deactivate UI32 debug.");
     getchar();
     dspic.configureDebugVar(0, ID_VAR_TEST_UI32, VAR_32b, 0, 250, 0, 0);
